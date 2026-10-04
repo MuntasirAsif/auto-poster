@@ -80,11 +80,11 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 
 ## Phase 6 — Module Stubs (later)
 
-- [ ] `internal/ai/` — provider abstraction
-- [ ] `internal/research/` — topic/source gathering
-- [ ] `internal/content/` — generation & templates
-- [ ] `internal/scheduler/` — time-based scheduling
-- [ ] `internal/publisher/` — platform API clients
+- [x] `internal/ai/` — `Provider` interface (`Generate(ctx, prompt)`) — provider abstraction
+- [x] `internal/research/` — `Source` struct + `Service` interface (`Research(ctx, topic)`) — topic gathering
+- [x] `internal/content/` — `Draft` struct + `Generator` interface (`Generate(ctx, topic, sources)`) — generation & templates
+- [x] `internal/scheduler/` — `Scheduler` interface (`Schedule(ctx, post, at)`) — time-based scheduling
+- [x] `internal/publisher/` — `Platform` consts + `Publisher` interface (`Publish(ctx, content)`) — platform API clients
 
 ## Phase 7 — Platform Posting (future)
 
