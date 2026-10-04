@@ -134,7 +134,9 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 - [x] **Scheduled Posts queue** (migration `0003`, shared `posts` table): `/dashboard/posts/scheduled/` list + add/edit/delete — full dashboard control, nothing publishes before its scheduled time
 - [x] Tested: list 200, create → status=scheduled, edit 200, delete works (production Supabase DB)
 - [x] **AI generation** — `cmd/generate -topic "..." [-publish]`: Gemini writes a full HTML blog post, queued in `posts` (+ optional immediate publish). Verified live: generated post published to the blog with category + footer.
+- [x] **AI cover image** — `cmd/generate -image`: **AI Horde** (free, anonymous) generates a cover image; stored as `posts.image_url` (migration `00004`); blog API accepts `image_base64` (JSON) → saved to Cloudinary; `publish-due` downloads + attaches at publish time. Verified live with cover image.
 - [x] Fixed blog API `DataError` — truncated + deduped slug (was exceeding `SlugField(50)` for long titles)
+- [x] Multipart uploads hang on Vercel serverless → image sent as base64 JSON instead
 
 ---
 
