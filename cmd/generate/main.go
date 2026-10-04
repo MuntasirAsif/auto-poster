@@ -20,19 +20,21 @@ type generatedPost struct {
 	Title            string `json:"title"`
 	ShortDescription string `json:"short_description"`
 	Content          string `json:"content"`
+	ImagePrompt      string `json:"image_prompt"`
 }
 
 func buildPrompt(topic string) string {
 	return fmt.Sprintf(`Write a high-quality, original blog post about: %s
 
 Return ONLY valid JSON, no markdown, in exactly this shape:
-{"title": "A compelling title", "short_description": "A 1-2 sentence teaser in plain text", "content": "<p>HTML content...</p>"}
+{"title": "A compelling title", "short_description": "A 1-2 sentence teaser in plain text", "content": "<p>HTML content...</p>", "image_prompt": "a detailed visual description for the blog cover image"}
 
 Requirements:
 - short_description must be plain text, no HTML, max ~30 words.
 - Content must be valid HTML using <p>, <h2>, <ul>, <li>, <strong> tags.
 - Make it 4-6 paragraphs, useful, and well-structured.
-- Content should read naturally for a professional developer's blog.`, topic)
+- Content should read naturally for a professional developer's blog.
+- image_prompt: write ONE detailed sentence describing a relevant illustration for this specific topic (the subject matter, not generic "abstract tech"). Example for a CI/CD article: "a colorful pipeline diagram with code and robots automating builds on a dark background". No text or words in the image.`, topic)
 }
 
 func parseGenerated(raw string) (*generatedPost, error) {
@@ -98,9 +100,13 @@ func main() {
 	imageURL := ""
 	var imageBytes []byte
 	if *withImage {
-		fmt.Println("Generating cover image via AI Horde (may take ~1 min)...")
+		fmt.Println("Generating cover image via AI Horde (may take ~1-3 min)...")
 		imgProvider := ai.AIHordeProviderFromEnv()
-		imgPrompt := fmt.Sprintf("Blog cover illustration for an article titled %q. Modern technology theme, abstract, professional, high quality, no text.", post.Title)
+		imgPrompt := post.ImagePrompt
+		if strings.TrimSpace(imgPrompt) == "" {
+			imgPrompt = fmt.Sprintf("Blog cover illustration for an article titled %q. Modern technology theme, professional, high quality, no text.", post.Title)
+		}
+		fmt.Println("Image prompt:", imgPrompt)
 		img, err := imgProvider.Generate(context.Background(), imgPrompt)
 		if err != nil {
 			log.Fatalf("image generation failed: %v", err)

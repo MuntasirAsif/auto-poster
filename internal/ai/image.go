@@ -49,10 +49,11 @@ func (p *AIHordeProvider) Generate(ctx context.Context, prompt string) (*ImageRe
 	payload, err := json.Marshal(map[string]any{
 		"prompt": prompt,
 		"params": map[string]any{
-			"width":  512,
-			"height": 512,
-			"steps":  20,
-			"cfg_scale": 7,
+			"width":          512,
+			"height":         512,
+			"steps":          20,
+			"cfg_scale":      7,
+			"negativeprompt": "text, words, letters, watermark, logo, signature, low quality, blurry",
 		},
 		"nsfw": false,
 		"r2":   true,
