@@ -1,0 +1,5 @@
+-- +goose Up
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+
+-- +goose Down
+ALTER TABLE posts DROP COLUMN IF EXISTS title;

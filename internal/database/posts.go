@@ -9,6 +9,7 @@ import (
 
 type Post struct {
 	ID          int64
+	Title       string
 	Platform    string
 	Content     string
 	Status      string
@@ -27,12 +28,17 @@ func NewPostRepository(pool *pgxpool.Pool) *PostRepository {
 	return &PostRepository{pool: pool}
 }
 
-func (r *PostRepository) Create(ctx context.Context, platform, content string, scheduledAt *time.Time) (*Post, error) {
+func (r *PostRepository) Create(ctx context.Context, title, platform, content string, scheduledAt *time.Time) (*Post, error) {
+	status := "draft"
+	if scheduledAt != nil {
+		status = "scheduled"
+	}
+
 	row := r.pool.QueryRow(ctx,
-		`INSERT INTO posts (platform, content, scheduled_at)
-		 VALUES ($1, $2, $3)
-		 RETURNING id, platform, content, status, scheduled_at, published_at, error, created_at, updated_at`,
-		platform, content, scheduledAt,
+		`INSERT INTO posts (title, platform, content, status, scheduled_at)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id, title, platform, content, status, scheduled_at, published_at, error, created_at, updated_at`,
+		title, platform, content, status, scheduledAt,
 	)
 
 	return scanPost(row)
@@ -40,7 +46,7 @@ func (r *PostRepository) Create(ctx context.Context, platform, content string, s
 
 func (r *PostRepository) GetByID(ctx context.Context, id int64) (*Post, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT id, platform, content, status, scheduled_at, published_at, error, created_at, updated_at
+		`SELECT id, title, platform, content, status, scheduled_at, published_at, error, created_at, updated_at
 		 FROM posts WHERE id = $1`,
 		id,
 	)
@@ -50,7 +56,7 @@ func (r *PostRepository) GetByID(ctx context.Context, id int64) (*Post, error) {
 
 func (r *PostRepository) List(ctx context.Context) ([]Post, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, platform, content, status, scheduled_at, published_at, error, created_at, updated_at
+		`SELECT id, title, platform, content, status, scheduled_at, published_at, error, created_at, updated_at
 		 FROM posts ORDER BY id`,
 	)
 	if err != nil {
@@ -61,7 +67,32 @@ func (r *PostRepository) List(ctx context.Context) ([]Post, error) {
 	posts := []Post{}
 	for rows.Next() {
 		var p Post
-		if err := rows.Scan(&p.ID, &p.Platform, &p.Content, &p.Status, &p.ScheduledAt, &p.PublishedAt, &p.Error, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Title, &p.Platform, &p.Content, &p.Status, &p.ScheduledAt, &p.PublishedAt, &p.Error, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+
+	return posts, rows.Err()
+}
+
+func (r *PostRepository) ListDue(ctx context.Context, now time.Time) ([]Post, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, title, platform, content, status, scheduled_at, published_at, error, created_at, updated_at
+		 FROM posts
+		 WHERE status = 'scheduled' AND scheduled_at <= $1
+		 ORDER BY scheduled_at`,
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	posts := []Post{}
+	for rows.Next() {
+		var p Post
+		if err := rows.Scan(&p.ID, &p.Title, &p.Platform, &p.Content, &p.Status, &p.ScheduledAt, &p.PublishedAt, &p.Error, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)
@@ -90,7 +121,7 @@ type rowScanner interface {
 
 func scanPost(row rowScanner) (*Post, error) {
 	var p Post
-	err := row.Scan(&p.ID, &p.Platform, &p.Content, &p.Status, &p.ScheduledAt, &p.PublishedAt, &p.Error, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.Title, &p.Platform, &p.Content, &p.Status, &p.ScheduledAt, &p.PublishedAt, &p.Error, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

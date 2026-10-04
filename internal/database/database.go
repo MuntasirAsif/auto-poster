@@ -9,8 +9,9 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
@@ -27,7 +28,14 @@ func databaseURL() string {
 }
 
 func Connect() (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(context.Background(), databaseURL())
+	cfg, err := pgxpool.ParseConfig(databaseURL())
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +51,13 @@ func Connect() (*pgxpool.Pool, error) {
 }
 
 func ApplyMigrations() error {
-	db, err := sql.Open("pgx", databaseURL())
+	connConfig, err := pgx.ParseConfig(databaseURL())
+	if err != nil {
+		return err
+	}
+	connConfig.DefaultQueryExecMode = pgx.QueryExecModeDescribeExec
+
+	db, err := sql.Open("pgx", stdlib.RegisterConnConfig(connConfig))
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,14 @@ const (
 	PlatformBlog     Platform = "blog"
 )
 
+type PublishRequest struct {
+	Title             string
+	Content           string
+	Category          string
+	ShortDescription  string
+}
+
 type Publisher interface {
 	Platform() Platform
-	Publish(ctx context.Context, content string) error
+	Publish(ctx context.Context, req PublishRequest) (string, error)
 }

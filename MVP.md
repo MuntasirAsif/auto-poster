@@ -119,7 +119,17 @@ CREATE TABLE IF NOT EXISTS posts (
 DROP TABLE IF EXISTS posts;
 ```
 
-New migrations = next numbered file (`00002_*.sql`), each with `-- +goose Up` / `-- +goose Down` blocks.
+`00002_add_posts_title.sql` adds the `title` column (needed for blog publishing):
+
+```sql
+-- +goose Up
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+
+-- +goose Down
+ALTER TABLE posts DROP COLUMN IF EXISTS title;
+```
+
+New migrations = next numbered file (`00003_*.sql`), each with `-- +goose Up` / `-- +goose Down` blocks.
 
 Planned later phases:
 
@@ -250,7 +260,7 @@ func main() {
 | `internal/research` | Gather topics/sources from the web               |
 | `internal/content`  | Compose + format content from research           |
 | `internal/scheduler` | Schedule posts (time-based queue, cron)         |
-| `internal/publisher` | Send posts to platform APIs                      |
+| `internal/publisher` | `PublishRequest` + `Publisher` interface; `DjangoBlogPublisher` implemented |
 | `internal/database` | Pool, migrations, repositories                   |
 
 Data flow (target): `research → ai/content → scheduler → publisher → posts` table.
@@ -260,6 +270,8 @@ Data flow (target): `research → ai/content → scheduler → publisher → pos
 | Variable      | Default                                          | Purpose                 |
 |---------------|--------------------------------------------------|-------------------------|
 | `DATABASE_URL`| `postgres://autoposter:autoposter@localhost:5432/auto_poster` | Postgres connection |
+| `BLOG_API_URL`| `http://127.0.0.1:8000`                          | Django blog base URL    |
+| `BLOG_API_TOKEN`| (set in env)                                   | Bearer token for blog API |
 
 `.env` lives at project root and is loaded by `godotenv` in `main.go` before connecting.
 
@@ -288,14 +300,25 @@ Subsequent runs apply no migrations (idempotent).
 
 **In scope (Phase 1):**
 - Go module + PostgreSQL 17 connection (pgxpool, ping)
-- `posts` table migration
+- `posts` table migration (+ `title` column)
 - Server entry point
+- Blog publisher → Django portfolio API (`internal/publisher/djangoblog.go`)
 
 **Deferred (later phases):**
 - AI generation, web research, content templates
 - Scheduling engine
-- Platform publishers (Twitter/LinkedIn/blog APIs)
+- More platform publishers (Twitter/LinkedIn)
 - Auth, users, API endpoints
+
+## 11b. Blog Publishing (Portfolio API)
+
+The Go `DjangoBlogPublisher` posts to the portfolio Django app (`/Volumes/New Volume/Development/web/portfolio-`):
+
+- **Endpoint**: `POST /api/blog/posts/` (in `core/api.py`, `core/urls.py`)
+- **Auth**: `Authorization: Bearer <BLOG_API_TOKEN>` (setting in `portfolio_project/settings.py`)
+- **Request**: JSON `{title, content, short_description, category}` → `201` with `{id, title, slug, url}`
+- Go client: `NewDjangoBlogPublisher(baseURL, token)` → `Publish(ctx, PublishRequest) (url, error)`
+- Smoke test: `BLOG_API_URL=http://127.0.0.1:8000 BLOG_API_TOKEN=<token> go run ./cmd/publish-smoke`
 
 ## 12. Roadmap
 
@@ -314,3 +337,5 @@ Subsequent runs apply no migrations (idempotent).
 - **`FATAL: database "auto_poster" does not exist`** → run the `CREATE DATABASE` step
 - **`connection refused` on 5432** → start PostgreSQL (`brew services start postgresql@17` or `docker compose up -d`)
 - **Port 5432 already in use** → Homebrew Postgres conflicts with Docker; pick one (local is primary here)
+- **Blog API returns 401** → `BLOG_API_TOKEN` mismatch between auto-poster `.env` and Django `settings.BLOG_API_TOKEN`
+- **Blog API returns 400 `title is required`** → `PublishRequest.Title` empty

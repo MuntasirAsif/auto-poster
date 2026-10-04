@@ -88,9 +88,28 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 
 ## Phase 7 — Platform Posting (future)
 
-- [ ] Connect first platform (Twitter/LinkedIn/blog)
-- [ ] End-to-end: research → generate → schedule → publish
-- [ ] Live posting test
+### Portfolio blog API (Django side — `/Volumes/New Volume/Development/web/portfolio-`)
+
+- [x] `portfolio_project/settings.py` — added `BLOG_API_TOKEN` (env)
+- [x] `core/api.py` — `blog_api_create` view: `POST /api/blog/posts/`, Bearer token auth, JSON in/out (201/400/401)
+- [x] `core/urls.py` — registered `api/blog/posts/` route
+- [x] Tested with curl: 401 (no/wrong token), 400 (missing title), 201 (valid post, slug auto-generated), live on `/blog/<slug>/`
+
+### Auto-poster publisher (Go side)
+
+- [x] Migration `00002_add_posts_title.sql` — added `title` column to `posts`
+- [x] `internal/database/posts.go` — `Post.Title` + `Create(title, ...)`
+- [x] `internal/publisher/publisher.go` — `PublishRequest{Title, Content, Category, ShortDescription}` + `Publish() (string, error)`
+- [x] `internal/publisher/djangoblog.go` — `DjangoBlogPublisher` (POST `/api/blog/posts/`, Bearer token)
+- [x] `.env` — `BLOG_API_URL`, `BLOG_API_TOKEN`
+- [x] `cmd/publish-smoke/main.go` — E2E smoke test CLI
+- [x] E2E verified: Go publisher → Django → blog live at `/blog/go-auto-poster-smoke-test/` (test post deleted after)
+
+### Next (not done)
+
+- [ ] Live posting on production (Vercel) with real `BLOG_API_TOKEN`
+- [ ] End-to-end pipeline: research → generate → schedule → publish
+- [ ] Wire scheduler to actually publish from `posts` table (status → published)
 
 ---
 
@@ -102,8 +121,10 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 | `cmd/server/main.go`           | ✓ connects DB, loads .env, runs migrations |
 | `internal/database/database.go`| ✓ pgxpool Connect + goose migrations |
 | `internal/database/posts.go`   | ✓ CRUD repository |
-| `internal/database/migrations/`| ✓ 00001_create_posts.sql (goose) |
-| `.env`                         | ✓ DATABASE_URL set |
+| `internal/database/migrations/`| ✓ 00001_create_posts.sql + 00002_add_posts_title.sql (goose) |
+| `internal/publisher/`         | ✓ Publisher interface + DjangoBlogPublisher |
+| `cmd/publish-smoke/`          | ✓ E2E smoke test CLI |
+| `.env`                         | ✓ DATABASE_URL, BLOG_API_URL, BLOG_API_TOKEN |
 | `docker-compose.yml`           | empty — fallback only |
 | `README.md`                    | empty |
 | `MVP.md`                       | ✓ written |
