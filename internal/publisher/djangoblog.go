@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -62,6 +63,11 @@ func (p *DjangoBlogPublisher) Publish(ctx context.Context, req PublishRequest) (
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("blog publish: read response: %w", err)
+	}
+
 	var result struct {
 		ID    int64  `json:"id"`
 		Title string `json:"title"`
@@ -69,8 +75,8 @@ func (p *DjangoBlogPublisher) Publish(ctx context.Context, req PublishRequest) (
 		URL   string `json:"url"`
 		Error string `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("blog publish: decode response: %w", err)
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("blog publish: decode response (status %d): %w", resp.StatusCode, err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
