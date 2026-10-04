@@ -11,10 +11,11 @@ const (
 )
 
 type PublishRequest struct {
-	Title             string
-	Content           string
-	Category          string
-	ShortDescription  string
+	Title            string
+	Content          string
+	Category         string
+	ShortDescription string
+	Image            []byte
 }
 
 type Publisher interface {

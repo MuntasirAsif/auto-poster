@@ -51,7 +51,7 @@ func main() {
 	defer db.Close()
 
 	repo := database.NewPostRepository(db)
-	post, err := repo.Create(context.Background(), *title, *platform, *content, scheduledAt)
+	post, err := repo.Create(context.Background(), *title, "", "", *platform, *content, scheduledAt)
 	if err != nil {
 		log.Fatal(err)
 	}

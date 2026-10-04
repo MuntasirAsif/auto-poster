@@ -17,17 +17,19 @@ import (
 )
 
 type generatedPost struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Title            string `json:"title"`
+	ShortDescription string `json:"short_description"`
+	Content          string `json:"content"`
 }
 
 func buildPrompt(topic string) string {
 	return fmt.Sprintf(`Write a high-quality, original blog post about: %s
 
 Return ONLY valid JSON, no markdown, in exactly this shape:
-{"title": "A compelling title", "content": "<p>HTML content...</p>"}
+{"title": "A compelling title", "short_description": "A 1-2 sentence teaser in plain text", "content": "<p>HTML content...</p>"}
 
 Requirements:
+- short_description must be plain text, no HTML, max ~30 words.
 - Content must be valid HTML using <p>, <h2>, <ul>, <li>, <strong> tags.
 - Make it 4-6 paragraphs, useful, and well-structured.
 - Content should read naturally for a professional developer's blog.`, topic)
@@ -64,6 +66,7 @@ func main() {
 	topic := flag.String("topic", "", "topic for the AI-generated post")
 	at := flag.String("at", "", "schedule time (RFC3339 or HH:MM); default now")
 	publishNow := flag.Bool("publish", false, "publish immediately to the blog instead of just scheduling")
+	withImage := flag.Bool("image", false, "also generate a cover image (free, via AI Horde)")
 	flag.Parse()
 
 	if strings.TrimSpace(*topic) == "" {
@@ -88,8 +91,24 @@ func main() {
 
 	fmt.Println("=== Generated post ===")
 	fmt.Println("Title:", post.Title)
+	fmt.Println("Description:", post.ShortDescription)
 	fmt.Println("Content:", post.Content)
 	fmt.Println("======================")
+
+	imageURL := ""
+	var imageBytes []byte
+	if *withImage {
+		fmt.Println("Generating cover image via AI Horde (may take ~1 min)...")
+		imgProvider := ai.AIHordeProviderFromEnv()
+		imgPrompt := fmt.Sprintf("Blog cover illustration for an article titled %q. Modern technology theme, abstract, professional, high quality, no text.", post.Title)
+		img, err := imgProvider.Generate(context.Background(), imgPrompt)
+		if err != nil {
+			log.Fatalf("image generation failed: %v", err)
+		}
+		imageURL = img.URL
+		imageBytes = img.Data
+		fmt.Printf("cover image ready (%d bytes, %s)\n", len(imageBytes), imageURL)
+	}
 
 	db, err := database.Connect()
 	if err != nil {
@@ -115,7 +134,7 @@ func main() {
 		scheduledAt = &now
 	}
 
-	created, err := repo.Create(context.Background(), post.Title, "blog", post.Content, scheduledAt)
+	created, err := repo.Create(context.Background(), post.Title, post.ShortDescription, imageURL, "blog", post.Content, scheduledAt)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,8 +143,10 @@ func main() {
 	if *publishNow {
 		blogPub := publisher.DjangoBlogPublisherFromEnv()
 		url, err := blogPub.Publish(context.Background(), publisher.PublishRequest{
-			Title:   created.Title,
-			Content: created.Content,
+			Title:            created.Title,
+			Content:          created.Content,
+			ShortDescription: created.ShortDescription,
+			Image:            imageBytes,
 		})
 		if err != nil {
 			msg := err.Error()

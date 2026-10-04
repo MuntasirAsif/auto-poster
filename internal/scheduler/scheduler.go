@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"auto-poster/internal/ai"
 	"auto-poster/internal/database"
 	"auto-poster/internal/publisher"
 )
@@ -80,10 +81,22 @@ func ProcessDue(ctx context.Context, repo *database.PostRepository, publishers m
 			content += "\n\n" + opts.ContentFooter
 		}
 
+		image := []byte(nil)
+		if post.ImageURL != "" {
+			img, err := ai.DownloadImage(ctx, post.ImageURL)
+			if err != nil {
+				log.Printf("post %d: download image: %v (publishing without image)", post.ID, err)
+			} else {
+				image = img
+			}
+		}
+
 		_, err := pub.Publish(ctx, publisher.PublishRequest{
-			Title:    post.Title,
-			Content:  content,
-			Category: category,
+			Title:            post.Title,
+			Content:          content,
+			Category:         category,
+			ShortDescription: post.ShortDescription,
+			Image:            image,
 		})
 		if err != nil {
 			msg := err.Error()

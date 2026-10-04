@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"time"
@@ -31,7 +32,7 @@ func NewDjangoBlogPublisher(baseURL, token string) *DjangoBlogPublisher {
 	return &DjangoBlogPublisher{
 		BaseURL: baseURL,
 		Token:   token,
-		Client:  &http.Client{Timeout: 30 * time.Second},
+		Client:  &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -40,21 +41,17 @@ func (p *DjangoBlogPublisher) Platform() Platform {
 }
 
 func (p *DjangoBlogPublisher) Publish(ctx context.Context, req PublishRequest) (string, error) {
-	payload, err := json.Marshal(map[string]string{
-		"title":             req.Title,
-		"content":           req.Content,
-		"category":          req.Category,
-		"short_description": req.ShortDescription,
-	})
-	if err != nil {
-		return "", err
-	}
+	var httpReq *http.Request
+	var err error
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.BaseURL+"/api/blog/posts/", bytes.NewReader(payload))
+	if len(req.Image) > 0 {
+		httpReq, err = p.multipartRequest(ctx, req)
+	} else {
+		httpReq, err = p.jsonRequest(ctx, req)
+	}
 	if err != nil {
 		return "", err
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+p.Token)
 
 	resp, err := p.Client.Do(httpReq)
@@ -84,4 +81,57 @@ func (p *DjangoBlogPublisher) Publish(ctx context.Context, req PublishRequest) (
 	}
 
 	return result.URL, nil
+}
+
+func (p *DjangoBlogPublisher) jsonRequest(ctx context.Context, req PublishRequest) (*http.Request, error) {
+	payload, err := json.Marshal(map[string]string{
+		"title":             req.Title,
+		"content":           req.Content,
+		"category":          req.Category,
+		"short_description": req.ShortDescription,
+	})
+	if err != nil {
+		return nil, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.BaseURL+"/api/blog/posts/", bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	return httpReq, nil
+}
+
+func (p *DjangoBlogPublisher) multipartRequest(ctx context.Context, req PublishRequest) (*http.Request, error) {
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	fields := map[string]string{
+		"title":             req.Title,
+		"content":           req.Content,
+		"category":          req.Category,
+		"short_description": req.ShortDescription,
+	}
+	for k, v := range fields {
+		if err := writer.WriteField(k, v); err != nil {
+			return nil, err
+		}
+	}
+
+	part, err := writer.CreateFormFile("image", "cover.jpg")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := part.Write(req.Image); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.BaseURL+"/api/blog/posts/", &buf)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", writer.FormDataContentType())
+	return httpReq, nil
 }
