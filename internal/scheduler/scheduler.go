@@ -9,7 +9,12 @@ import (
 	"auto-poster/internal/publisher"
 )
 
-func ProcessDue(ctx context.Context, repo *database.PostRepository, publishers map[publisher.Platform]publisher.Publisher) (int, error) {
+type Options struct {
+	DefaultCategory string
+	ContentFooter   string
+}
+
+func ProcessDue(ctx context.Context, repo *database.PostRepository, publishers map[publisher.Platform]publisher.Publisher, opts Options) (int, error) {
 	due, err := repo.ListDue(ctx, time.Now())
 	if err != nil {
 		return 0, err
@@ -31,10 +36,19 @@ func ProcessDue(ctx context.Context, repo *database.PostRepository, publishers m
 		}
 
 		now := time.Now()
+		category := post.Platform
+		if opts.DefaultCategory != "" {
+			category = opts.DefaultCategory
+		}
+		content := post.Content
+		if opts.ContentFooter != "" {
+			content += "\n\n" + opts.ContentFooter
+		}
+
 		_, err := pub.Publish(ctx, publisher.PublishRequest{
 			Title:    post.Title,
-			Content:  post.Content,
-			Category: post.Platform,
+			Content:  content,
+			Category: category,
 		})
 		if err != nil {
 			msg := err.Error()
@@ -57,10 +71,12 @@ type Worker struct {
 	repo       *database.PostRepository
 	publishers map[publisher.Platform]publisher.Publisher
 	interval   time.Duration
+	baseURL    string
+	token      string
 }
 
-func NewWorker(repo *database.PostRepository, publishers map[publisher.Platform]publisher.Publisher, interval time.Duration) *Worker {
-	return &Worker{repo: repo, publishers: publishers, interval: interval}
+func NewWorker(repo *database.PostRepository, publishers map[publisher.Platform]publisher.Publisher, interval time.Duration, baseURL, token string) *Worker {
+	return &Worker{repo: repo, publishers: publishers, interval: interval, baseURL: baseURL, token: token}
 }
 
 func (w *Worker) Run(ctx context.Context) {
@@ -73,7 +89,18 @@ func (w *Worker) Run(ctx context.Context) {
 			log.Println("scheduler stopped")
 			return
 		case <-ticker.C:
-			if _, err := ProcessDue(ctx, w.repo, w.publishers); err != nil {
+			opts := Options{}
+			if settings, err := publisher.FetchSettings(ctx, w.baseURL, w.token); err == nil {
+				if !settings.Enabled {
+					log.Println("scheduler: auto poster disabled in settings, skipping")
+					continue
+				}
+				opts = Options{DefaultCategory: settings.DefaultCategory, ContentFooter: settings.ContentFooter}
+			} else {
+				log.Printf("scheduler: fetch settings: %v", err)
+			}
+
+			if _, err := ProcessDue(ctx, w.repo, w.publishers, opts); err != nil {
 				log.Printf("scheduler: process due: %v", err)
 			}
 		}

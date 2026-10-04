@@ -35,11 +35,12 @@ func main() {
 	defer stop()
 
 	repo := database.NewPostRepository(db)
+	blogPub := publisher.DjangoBlogPublisherFromEnv()
 	publishers := map[publisher.Platform]publisher.Publisher{
-		publisher.PlatformBlog: publisher.DjangoBlogPublisherFromEnv(),
+		publisher.PlatformBlog: blogPub,
 	}
 
-	worker := scheduler.NewWorker(repo, publishers, 30*time.Second)
+	worker := scheduler.NewWorker(repo, publishers, 30*time.Second, blogPub.BaseURL, blogPub.Token)
 	go worker.Run(ctx)
 
 	port := os.Getenv("PORT")

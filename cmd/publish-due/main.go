@@ -28,11 +28,26 @@ func main() {
 	}
 
 	repo := database.NewPostRepository(db)
+	blogPub := publisher.DjangoBlogPublisherFromEnv()
 	publishers := map[publisher.Platform]publisher.Publisher{
-		publisher.PlatformBlog: publisher.DjangoBlogPublisherFromEnv(),
+		publisher.PlatformBlog: blogPub,
 	}
 
-	published, err := scheduler.ProcessDue(context.Background(), repo, publishers)
+	ctx := context.Background()
+	opts := scheduler.Options{}
+	if settings, err := publisher.FetchSettings(ctx, blogPub.BaseURL, blogPub.Token); err == nil {
+		log.Printf("autoposter settings: enabled=%v category=%q footer=%q",
+			settings.Enabled, settings.DefaultCategory, settings.ContentFooter)
+		if !settings.Enabled {
+			log.Println("auto poster disabled in settings, exiting")
+			os.Exit(0)
+		}
+		opts = scheduler.Options{DefaultCategory: settings.DefaultCategory, ContentFooter: settings.ContentFooter}
+	} else {
+		log.Printf("fetch settings (continuing without options): %v", err)
+	}
+
+	published, err := scheduler.ProcessDue(ctx, repo, publishers, opts)
 	if err != nil {
 		log.Fatal(err)
 	}
