@@ -115,7 +115,7 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 
 ### Infrastructure
 - [x] **Supabase** free Postgres — `DATABASE_URL` (production DB, migrations auto-applied by `publish-due`)
-- [x] **GitHub Actions** daily cron (`.github/workflows/publish.yml`, `0 3 * * *` = 09:00 AM BDT) runs `cmd/publish-due` once per day + manual `workflow_dispatch`
+- [x] **GitHub Actions** cron (`.github/workflows/publish.yml`, `*/15 * * * *` = every 15 min) runs `cmd/publish-due` + manual `workflow_dispatch`. Worker only publishes inside the dashboard-configured window (daily start time + interval).
 - [x] **Vercel** free — portfolio live at `https://www.muntasirashif.com`, blog API + settings API deployed
 - [x] Secrets set: `DATABASE_URL`, `BLOG_API_URL=https://www.muntasirashif.com`, `BLOG_API_TOKEN`
 - [x] Scheduler: `internal/scheduler` — `ProcessDue` (shared) + `Worker` (local always-on); `cmd/publish-due` (cron one-shot)
@@ -124,11 +124,15 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 - [x] Verified: `gh workflow run` published a live post → `/blog/auto-poster-live-test/` (200) + `posts.status='published'`
 
 ### Dashboard Auto Poster options (Django)
-- [x] `AutoPosterOption` model + migration `0002` (`enabled`, `blog_api_url`, `default_category`, `content_footer`, `schedule_interval_minutes`)
+- [x] `AutoPosterOption` model + migration `0002` (`enabled`, `blog_api_url`, `default_category`, `content_footer`)
 - [x] Settings page: `/dashboard/autoposter/settings/` (+ sidebar "Auto Poster" link + button on Blog Posts page)
 - [x] `GET /api/autoposter/settings/` (Bearer auth) — served to the worker
 - [x] Go respects options: `enabled` (skip if off), `default_category`, `content_footer`
 - [x] E2E verified: category "tech" + footer appended to published post
+- [x] **Post start time + interval + timezone** (migration `0003`): `daily_publish_time`, `schedule_interval_minutes`, `timezone` editable in dashboard
+- [x] Worker `PublishAllowed()` — only publishes within daily start time + interval slots (never before the time)
+- [x] **Scheduled Posts queue** (migration `0003`, shared `posts` table): `/dashboard/posts/scheduled/` list + add/edit/delete — full dashboard control, nothing publishes before its scheduled time
+- [x] Tested: list 200, create → status=scheduled, edit 200, delete works (production Supabase DB)
 
 ---
 
