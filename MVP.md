@@ -277,7 +277,7 @@ Data flow (target): `research → ai/content → scheduler → publisher → pos
 
 ## 9b. Deployment (free tier)
 
-- **Worker**: GitHub Actions cron (`.github/workflows/publish.yml`) runs `cmd/publish-due` every 5 min (or `workflow_dispatch`). Reads secrets `DATABASE_URL`, `BLOG_API_URL`, `BLOG_API_TOKEN`.
+- **Worker**: GitHub Actions cron (`.github/workflows/publish.yml`, `0 3 * * *` = once daily at 09:00 AM BDT) runs `cmd/publish-due` (or `workflow_dispatch` for manual runs). Reads secrets `DATABASE_URL`, `BLOG_API_URL`, `BLOG_API_TOKEN`. Any `scheduled` posts that are due get published in that run.
 - **Database**: Supabase free Postgres (pooler port 6543). Migrations auto-run by `publish-due` on each invocation.
 - **Portfolio**: Vercel free tier, live at `https://www.muntasirashif.com`. Blog API + settings API deployed.
 - **Dashboard options**: `AutoPosterOption` model — edit at `/dashboard/autoposter/settings/` (or the "Auto Poster" button on the Blog Posts page). The worker reads `GET /api/autoposter/settings/` and respects `enabled`, `default_category`, `content_footer`.

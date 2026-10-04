@@ -115,7 +115,7 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 
 ### Infrastructure
 - [x] **Supabase** free Postgres — `DATABASE_URL` (production DB, migrations auto-applied by `publish-due`)
-- [x] **GitHub Actions** cron (`.github/workflows/publish.yml`) runs `cmd/publish-due` every 5 min + manual `workflow_dispatch`
+- [x] **GitHub Actions** daily cron (`.github/workflows/publish.yml`, `0 3 * * *` = 09:00 AM BDT) runs `cmd/publish-due` once per day + manual `workflow_dispatch`
 - [x] **Vercel** free — portfolio live at `https://www.muntasirashif.com`, blog API + settings API deployed
 - [x] Secrets set: `DATABASE_URL`, `BLOG_API_URL=https://www.muntasirashif.com`, `BLOG_API_TOKEN`
 - [x] Scheduler: `internal/scheduler` — `ProcessDue` (shared) + `Worker` (local always-on); `cmd/publish-due` (cron one-shot)
