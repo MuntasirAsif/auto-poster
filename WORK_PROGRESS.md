@@ -80,7 +80,7 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 
 ## Phase 6 — Module Stubs (later)
 
-- [x] `internal/ai/` — `Provider` interface (`Generate(ctx, prompt)`) — provider abstraction
+- [x] `internal/ai/` — **Gemini provider** (`internal/ai/gemini.go`, OpenAI-compatible endpoint, model `gemini-3.8-flash`, retry on 429/503). Note: `gemini-2.0-flash` is deprecated by Google.
 - [x] `internal/research/` — `Source` struct + `Service` interface (`Research(ctx, topic)`) — topic gathering
 - [x] `internal/content/` — `Draft` struct + `Generator` interface (`Generate(ctx, topic, sources)`) — generation & templates
 - [x] `internal/scheduler/` — `Scheduler` interface (`Schedule(ctx, post, at)`) — time-based scheduling
@@ -133,6 +133,8 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 - [x] Worker `PublishAllowed()` — only publishes within daily start time + interval slots (never before the time)
 - [x] **Scheduled Posts queue** (migration `0003`, shared `posts` table): `/dashboard/posts/scheduled/` list + add/edit/delete — full dashboard control, nothing publishes before its scheduled time
 - [x] Tested: list 200, create → status=scheduled, edit 200, delete works (production Supabase DB)
+- [x] **AI generation** — `cmd/generate -topic "..." [-publish]`: Gemini writes a full HTML blog post, queued in `posts` (+ optional immediate publish). Verified live: generated post published to the blog with category + footer.
+- [x] Fixed blog API `DataError` — truncated + deduped slug (was exceeding `SlugField(50)` for long titles)
 
 ---
 
