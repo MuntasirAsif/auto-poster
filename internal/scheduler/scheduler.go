@@ -14,6 +14,41 @@ type Options struct {
 	ContentFooter   string
 }
 
+func PublishAllowed(settings *publisher.AutoPosterSettings, now time.Time) bool {
+	if settings == nil || settings.DailyPublishTime == "" {
+		return true
+	}
+
+	loc := time.UTC
+	if settings.Timezone != "" {
+		if l, err := time.LoadLocation(settings.Timezone); err == nil {
+			loc = l
+		}
+	}
+
+	start, err := time.ParseInLocation("15:04", settings.DailyPublishTime, loc)
+	if err != nil {
+		return true
+	}
+
+	nowLocal := now.In(loc)
+	todayStart := time.Date(nowLocal.Year(), nowLocal.Month(), nowLocal.Day(), start.Hour(), start.Minute(), 0, 0, loc)
+	if nowLocal.Before(todayStart) {
+		return false
+	}
+
+	if settings.ScheduleIntervalMin > 0 {
+		minsSince := int(nowLocal.Sub(todayStart).Minutes())
+		slotIdx := minsSince / settings.ScheduleIntervalMin
+		slotStart := todayStart.Add(time.Duration(slotIdx*settings.ScheduleIntervalMin) * time.Minute)
+		if nowLocal.Sub(slotStart) >= 15*time.Minute {
+			return false
+		}
+	}
+
+	return true
+}
+
 func ProcessDue(ctx context.Context, repo *database.PostRepository, publishers map[publisher.Platform]publisher.Publisher, opts Options) (int, error) {
 	due, err := repo.ListDue(ctx, time.Now())
 	if err != nil {
@@ -93,6 +128,10 @@ func (w *Worker) Run(ctx context.Context) {
 			if settings, err := publisher.FetchSettings(ctx, w.baseURL, w.token); err == nil {
 				if !settings.Enabled {
 					log.Println("scheduler: auto poster disabled in settings, skipping")
+					continue
+				}
+				if !PublishAllowed(settings, time.Now()) {
+					log.Println("scheduler: outside publish window, skipping")
 					continue
 				}
 				opts = Options{DefaultCategory: settings.DefaultCategory, ContentFooter: settings.ContentFooter}

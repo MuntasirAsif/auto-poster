@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 
@@ -36,10 +37,14 @@ func main() {
 	ctx := context.Background()
 	opts := scheduler.Options{}
 	if settings, err := publisher.FetchSettings(ctx, blogPub.BaseURL, blogPub.Token); err == nil {
-		log.Printf("autoposter settings: enabled=%v category=%q footer=%q",
-			settings.Enabled, settings.DefaultCategory, settings.ContentFooter)
+		log.Printf("autoposter settings: enabled=%v start=%s interval=%d tz=%s category=%q",
+			settings.Enabled, settings.DailyPublishTime, settings.ScheduleIntervalMin, settings.Timezone, settings.DefaultCategory)
 		if !settings.Enabled {
 			log.Println("auto poster disabled in settings, exiting")
+			os.Exit(0)
+		}
+		if !scheduler.PublishAllowed(settings, time.Now()) {
+			log.Println("outside the configured publish window, skipping")
 			os.Exit(0)
 		}
 		opts = scheduler.Options{DefaultCategory: settings.DefaultCategory, ContentFooter: settings.ContentFooter}

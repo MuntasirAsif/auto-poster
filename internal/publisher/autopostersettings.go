@@ -13,7 +13,9 @@ type AutoPosterSettings struct {
 	BlogAPIURL           string `json:"blog_api_url"`
 	DefaultCategory      string `json:"default_category"`
 	ContentFooter        string `json:"content_footer"`
+	DailyPublishTime     string `json:"daily_publish_time"`
 	ScheduleIntervalMin  int    `json:"schedule_interval_minutes"`
+	Timezone             string `json:"timezone"`
 }
 
 func FetchSettings(ctx context.Context, baseURL, token string) (*AutoPosterSettings, error) {
