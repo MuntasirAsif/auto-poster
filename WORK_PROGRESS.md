@@ -107,9 +107,28 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 
 ### Next (not done)
 
-- [ ] Live posting on production (Vercel) with real `BLOG_API_TOKEN`
+- [x] **LIVE deployment** — full pipeline now works on production (see below)
 - [ ] End-to-end pipeline: research → generate → schedule → publish
 - [ ] Wire scheduler to actually publish from `posts` table (status → published)
+
+## Phase 8 — LIVE Deployment (free: GitHub Actions + Supabase + Vercel)
+
+### Infrastructure
+- [x] **Supabase** free Postgres — `DATABASE_URL` (production DB, migrations auto-applied by `publish-due`)
+- [x] **GitHub Actions** cron (`.github/workflows/publish.yml`) runs `cmd/publish-due` every 5 min + manual `workflow_dispatch`
+- [x] **Vercel** free — portfolio live at `https://www.muntasirashif.com`, blog API + settings API deployed
+- [x] Secrets set: `DATABASE_URL`, `BLOG_API_URL=https://www.muntasirashif.com`, `BLOG_API_TOKEN`
+- [x] Scheduler: `internal/scheduler` — `ProcessDue` (shared) + `Worker` (local always-on); `cmd/publish-due` (cron one-shot)
+- [x] `cmd/schedule` CLI — insert a scheduled post
+- [x] pgx `QueryExecModeDescribeExec` — works with Supabase PgBouncer pooler (6543)
+- [x] Verified: `gh workflow run` published a live post → `/blog/auto-poster-live-test/` (200) + `posts.status='published'`
+
+### Dashboard Auto Poster options (Django)
+- [x] `AutoPosterOption` model + migration `0002` (`enabled`, `blog_api_url`, `default_category`, `content_footer`, `schedule_interval_minutes`)
+- [x] Settings page: `/dashboard/autoposter/settings/` (+ sidebar "Auto Poster" link + button on Blog Posts page)
+- [x] `GET /api/autoposter/settings/` (Bearer auth) — served to the worker
+- [x] Go respects options: `enabled` (skip if off), `default_category`, `content_footer`
+- [x] E2E verified: category "tech" + footer appended to published post
 
 ---
 
@@ -119,11 +138,14 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 |--------------------------------|----------|
 | `go.mod`                       | ✓ module created |
 | `cmd/server/main.go`           | ✓ connects DB, loads .env, runs migrations |
-| `internal/database/database.go`| ✓ pgxpool Connect + goose migrations |
-| `internal/database/posts.go`   | ✓ CRUD repository |
+| `internal/database/database.go`| ✓ pgxpool Connect + goose migrations (pooler-safe) |
+| `internal/database/posts.go`   | ✓ CRUD repository + ListDue |
 | `internal/database/migrations/`| ✓ 00001_create_posts.sql + 00002_add_posts_title.sql (goose) |
-| `internal/publisher/`         | ✓ Publisher interface + DjangoBlogPublisher |
-| `cmd/publish-smoke/`          | ✓ E2E smoke test CLI |
+| `internal/publisher/`         | ✓ Publisher interface + DjangoBlogPublisher + AutoPosterSettings |
+| `internal/scheduler/`         | ✓ ProcessDue + Worker |
+| `cmd/publish-due/`            | ✓ cron one-shot (production worker) |
+| `cmd/schedule/`               | ✓ schedule a post CLI |
+| `.github/workflows/publish.yml`| ✓ GitHub Actions cron (5 min) |
 | `.env`                         | ✓ DATABASE_URL, BLOG_API_URL, BLOG_API_TOKEN |
 | `docker-compose.yml`           | empty — fallback only |
 | `README.md`                    | empty |

@@ -275,6 +275,26 @@ Data flow (target): `research → ai/content → scheduler → publisher → pos
 
 `.env` lives at project root and is loaded by `godotenv` in `main.go` before connecting.
 
+## 9b. Deployment (free tier)
+
+- **Worker**: GitHub Actions cron (`.github/workflows/publish.yml`) runs `cmd/publish-due` every 5 min (or `workflow_dispatch`). Reads secrets `DATABASE_URL`, `BLOG_API_URL`, `BLOG_API_TOKEN`.
+- **Database**: Supabase free Postgres (pooler port 6543). Migrations auto-run by `publish-due` on each invocation.
+- **Portfolio**: Vercel free tier, live at `https://www.muntasirashif.com`. Blog API + settings API deployed.
+- **Dashboard options**: `AutoPosterOption` model — edit at `/dashboard/autoposter/settings/` (or the "Auto Poster" button on the Blog Posts page). The worker reads `GET /api/autoposter/settings/` and respects `enabled`, `default_category`, `content_footer`.
+
+### Schedule a post
+```bash
+# local (uses .env DATABASE_URL)
+go run ./cmd/schedule -title "My Post" -content "<p>Hello</p>" -at "18:30"
+# or against production (Supabase)
+DATABASE_URL=<supabase-url> go run ./cmd/schedule -title "..." -content "..." -at "$(date -v+5M +%Y-%m-%dT%H:%M:%S%z)"
+```
+
+### Run the worker manually (production)
+```bash
+gh workflow run publish.yml -R MuntasirAsif/auto-poster
+```
+
 ## 10. Run Instructions
 
 ```bash
