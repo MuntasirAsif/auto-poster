@@ -15,7 +15,7 @@ type Options struct {
 	ContentFooter   string
 }
 
-func PublishAllowed(settings *publisher.AutoPosterSettings, now time.Time) bool {
+func PublishAllowed(settings *publisher.AutoPosterSettings, now time.Time, lastPublished *time.Time) bool {
 	if settings == nil || settings.DailyPublishTime == "" {
 		return true
 	}
@@ -38,11 +38,8 @@ func PublishAllowed(settings *publisher.AutoPosterSettings, now time.Time) bool 
 		return false
 	}
 
-	if settings.ScheduleIntervalMin > 0 {
-		minsSince := int(nowLocal.Sub(todayStart).Minutes())
-		slotIdx := minsSince / settings.ScheduleIntervalMin
-		slotStart := todayStart.Add(time.Duration(slotIdx*settings.ScheduleIntervalMin) * time.Minute)
-		if nowLocal.Sub(slotStart) >= 15*time.Minute {
+	if settings.ScheduleIntervalMin > 0 && lastPublished != nil {
+		if now.Sub(*lastPublished) < time.Duration(settings.ScheduleIntervalMin)*time.Minute {
 			return false
 		}
 	}
@@ -143,7 +140,11 @@ func (w *Worker) Run(ctx context.Context) {
 					log.Println("scheduler: auto poster disabled in settings, skipping")
 					continue
 				}
-				if !PublishAllowed(settings, time.Now()) {
+				lastPublished, err := w.repo.LastPublishedAt(ctx)
+				if err != nil {
+					log.Printf("scheduler: last published lookup: %v", err)
+				}
+				if !PublishAllowed(settings, time.Now(), lastPublished) {
 					log.Println("scheduler: outside publish window, skipping")
 					continue
 				}

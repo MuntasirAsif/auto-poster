@@ -116,6 +116,7 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 ### Infrastructure
 - [x] **Supabase** free Postgres — `DATABASE_URL` (production DB, migrations auto-applied by `publish-due`)
 - [x] **GitHub Actions** cron (`.github/workflows/publish.yml`, `*/15 * * * *` = every 15 min) runs `cmd/publish-due` + manual `workflow_dispatch`. Worker only publishes inside the dashboard-configured window (daily start time + interval).
+- [x] **Reliable trigger** — GitHub throttles `schedule` crons on low-activity repos (observed ~every 3h, not 15m). A Supabase `pg_cron` + `pg_net` job (`scripts/setup_supabase_cron.sh`) now calls the workflow_dispatch API every 15 min instead. The token is stored in Supabase Vault (`auto_poster_github_pat`).
 - [x] **Vercel** free — portfolio live at `https://www.muntasirashif.com`, blog API + settings API deployed
 - [x] Secrets set: `DATABASE_URL`, `BLOG_API_URL=https://www.muntasirashif.com`, `BLOG_API_TOKEN`
 - [x] Scheduler: `internal/scheduler` — `ProcessDue` (shared) + `Worker` (local always-on); `cmd/publish-due` (cron one-shot)
@@ -130,7 +131,7 @@ Legend: `[x]` = done, `[ ]` = pending/in progress.
 - [x] Go respects options: `enabled` (skip if off), `default_category`, `content_footer`
 - [x] E2E verified: category "tech" + footer appended to published post
 - [x] **Post start time + interval + timezone** (migration `0003`): `daily_publish_time`, `schedule_interval_minutes`, `timezone` editable in dashboard
-- [x] Worker `PublishAllowed()` — only publishes within daily start time + interval slots (never before the time)
+- [x] Worker `PublishAllowed()` — never publishes before the daily start time; interval enforced as a minimum gap since the last publish (robust to delayed/throttled cron runs)
 - [x] **Scheduled Posts queue** (migration `0003`, shared `posts` table): `/dashboard/posts/scheduled/` list + add/edit/delete — full dashboard control, nothing publishes before its scheduled time
 - [x] Tested: list 200, create → status=scheduled, edit 200, delete works (production Supabase DB)
 - [x] **AI generation** — `cmd/generate -topic "..." [-publish]`: Gemini writes a full HTML blog post, queued in `posts` (+ optional immediate publish). Verified live: generated post published to the blog with category + footer.

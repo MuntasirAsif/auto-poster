@@ -8,18 +8,18 @@ import (
 )
 
 type Post struct {
-	ID                int64
-	Title             string
-	ShortDescription  string
-	ImageURL          string
-	Platform          string
-	Content           string
-	Status            string
-	ScheduledAt       *time.Time
-	PublishedAt       *time.Time
-	Error             *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID               int64
+	Title            string
+	ShortDescription string
+	ImageURL         string
+	Platform         string
+	Content          string
+	Status           string
+	ScheduledAt      *time.Time
+	PublishedAt      *time.Time
+	Error            *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type PostRepository struct {
@@ -101,6 +101,17 @@ func (r *PostRepository) ListDue(ctx context.Context, now time.Time) ([]Post, er
 	}
 
 	return posts, rows.Err()
+}
+
+func (r *PostRepository) LastPublishedAt(ctx context.Context) (*time.Time, error) {
+	var publishedAt *time.Time
+	err := r.pool.QueryRow(ctx,
+		`SELECT MAX(published_at) FROM posts WHERE status = 'published'`,
+	).Scan(&publishedAt)
+	if err != nil {
+		return nil, err
+	}
+	return publishedAt, nil
 }
 
 func (r *PostRepository) UpdateStatus(ctx context.Context, id int64, status string, publishedAt *time.Time, errMsg *string) error {

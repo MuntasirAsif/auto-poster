@@ -43,7 +43,11 @@ func main() {
 			log.Println("auto poster disabled in settings, exiting")
 			os.Exit(0)
 		}
-		if !scheduler.PublishAllowed(settings, time.Now()) {
+		lastPublished, err := repo.LastPublishedAt(ctx)
+		if err != nil {
+			log.Printf("last published lookup: %v", err)
+		}
+		if !scheduler.PublishAllowed(settings, time.Now(), lastPublished) {
 			log.Println("outside the configured publish window, skipping")
 			os.Exit(0)
 		}
