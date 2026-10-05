@@ -52,12 +52,17 @@ func (p *GeminiProvider) Generate(ctx context.Context, prompt string) (string, e
 	}
 
 	var lastErr error
-	for attempt := 1; attempt <= 4; attempt++ {
+	backoff := 2 * time.Second
+	for attempt := 1; attempt <= 6; attempt++ {
 		if attempt > 1 {
 			select {
-			case <-time.After(time.Duration(attempt) * 3 * time.Second):
+			case <-time.After(backoff):
 			case <-ctx.Done():
 				return "", ctx.Err()
+			}
+			backoff *= 2
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
 			}
 		}
 

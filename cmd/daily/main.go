@@ -25,6 +25,10 @@ func main() {
 	withImage := flag.Bool("image", false, "generate a cover image for each post (free, via AI Horde)")
 	flag.Parse()
 
+	if *count < 1 {
+		*count = 1
+	}
+
 	provider := ai.GeminiProviderFromEnv()
 	if provider.APIKey == "" {
 		log.Fatal("GEMINI_API_KEY not set")
@@ -58,19 +62,24 @@ func main() {
 	}
 	repo := database.NewPostRepository(db)
 
-	topics, err := content.GenerateTopics(ctx, provider, *count)
-	if err != nil {
-		log.Fatalf("generate topics: %v", err)
-	}
-	log.Printf("generating %d post(s): %s", len(topics), strings.Join(topics, " | "))
-
 	published := 0
-	for i, topic := range topics {
-		log.Printf("[%d/%d] %s", i+1, len(topics), topic)
+	failures := 0
+	for published < *count && failures < 5 {
+		topics, err := content.GenerateTopics(ctx, provider, 1)
+		if err != nil {
+			failures++
+			log.Printf("topic generation failed (%d/5): %v", failures, err)
+			time.Sleep(15 * time.Second)
+			continue
+		}
+		topic := topics[0]
+		log.Printf("[%d/%d] %s", published+1, *count, topic)
 
 		post, err := content.GeneratePost(ctx, provider, topic)
 		if err != nil {
-			log.Printf("  generate failed: %v (skipping)", err)
+			failures++
+			log.Printf("  generate failed (%d/5): %v", failures, err)
+			time.Sleep(15 * time.Second)
 			continue
 		}
 
@@ -113,7 +122,9 @@ func main() {
 				msg := err.Error()
 				repo.UpdateStatus(ctx, created.ID, "failed", &now, &msg)
 			}
-			log.Printf("  publish failed: %v", err)
+			failures++
+			log.Printf("  publish failed (%d/5): %v", failures, err)
+			time.Sleep(15 * time.Second)
 			continue
 		}
 		if created != nil {
@@ -125,7 +136,7 @@ func main() {
 		log.Printf("  published: %s%s", blogPub.BaseURL, url)
 	}
 
-	log.Printf("done: %d/%d post(s) published", published, len(topics))
+	log.Printf("done: %d/%d post(s) published", published, *count)
 	if published == 0 {
 		log.Fatal("no posts were published")
 	}
