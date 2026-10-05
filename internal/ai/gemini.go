@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,6 +41,19 @@ func GeminiProviderFromEnv() *GeminiProvider {
 	return NewGeminiProvider(os.Getenv("GEMINI_API_KEY"), model)
 }
 
+type HTTPError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("gemini error (status %d): %s", e.StatusCode, e.Message)
+}
+
+func (e *HTTPError) retryable() bool {
+	return e.StatusCode == http.StatusTooManyRequests || e.StatusCode >= 500
+}
+
 func (p *GeminiProvider) Generate(ctx context.Context, prompt string) (string, error) {
 	body, err := json.Marshal(map[string]any{
 		"model": p.Model,
@@ -53,10 +67,16 @@ func (p *GeminiProvider) Generate(ctx context.Context, prompt string) (string, e
 
 	var lastErr error
 	backoff := 2 * time.Second
-	for attempt := 1; attempt <= 6; attempt++ {
+	for attempt := 1; attempt <= 5; attempt++ {
 		if attempt > 1 {
+			wait := backoff
+			var he *HTTPError
+			if errors.As(lastErr, &he) && he.StatusCode == http.StatusTooManyRequests {
+				// Rate limited: back off hard instead of hammering the quota.
+				wait = 60 * time.Second
+			}
 			select {
-			case <-time.After(backoff):
+			case <-time.After(wait):
 			case <-ctx.Done():
 				return "", ctx.Err()
 			}
@@ -68,6 +88,10 @@ func (p *GeminiProvider) Generate(ctx context.Context, prompt string) (string, e
 
 		resp, err := p.post(ctx, body)
 		if err != nil {
+			var he *HTTPError
+			if errors.As(err, &he) && !he.retryable() {
+				return "", err
+			}
 			lastErr = err
 			continue
 		}
@@ -103,7 +127,7 @@ func (p *GeminiProvider) post(ctx context.Context, body []byte) (string, error) 
 		raw := make([]byte, 0)
 		raw, _ = io.ReadAll(resp.Body)
 		json.Unmarshal(raw, &errBody)
-		return "", fmt.Errorf("gemini error (status %d): %s", resp.StatusCode, errBody.Error.Message)
+		return "", &HTTPError{StatusCode: resp.StatusCode, Message: errBody.Error.Message}
 	}
 
 	var result struct {
