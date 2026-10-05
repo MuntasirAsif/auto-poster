@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -12,53 +11,10 @@ import (
 	"github.com/joho/godotenv"
 
 	"auto-poster/internal/ai"
+	"auto-poster/internal/content"
 	"auto-poster/internal/database"
 	"auto-poster/internal/publisher"
 )
-
-type generatedPost struct {
-	Title            string `json:"title"`
-	ShortDescription string `json:"short_description"`
-	Content          string `json:"content"`
-	ImagePrompt      string `json:"image_prompt"`
-}
-
-func buildPrompt(topic string) string {
-	return fmt.Sprintf(`Write a high-quality, original blog post about: %s
-
-Return ONLY valid JSON, no markdown, in exactly this shape:
-{"title": "A compelling title", "short_description": "A 1-2 sentence teaser in plain text", "content": "<p>HTML content...</p>", "image_prompt": "a detailed visual description for the blog cover image"}
-
-Requirements:
-- short_description must be plain text, no HTML, max ~30 words.
-- Content must be valid HTML using <p>, <h2>, <ul>, <li>, <strong> tags.
-- Make it 4-6 paragraphs, useful, and well-structured.
-- Content should read naturally for a professional developer's blog.
-- image_prompt: write ONE detailed sentence describing a relevant illustration for this specific topic (the subject matter, not generic "abstract tech"). Example for a CI/CD article: "a colorful pipeline diagram with code and robots automating builds on a dark background". No text or words in the image.`, topic)
-}
-
-func parseGenerated(raw string) (*generatedPost, error) {
-	raw = strings.TrimSpace(raw)
-	raw = strings.TrimPrefix(raw, "```json")
-	raw = strings.TrimPrefix(raw, "```")
-	raw = strings.TrimSuffix(raw, "```")
-	raw = strings.TrimSpace(raw)
-
-	start := strings.Index(raw, "{")
-	end := strings.LastIndex(raw, "}")
-	if start >= 0 && end > start {
-		raw = raw[start : end+1]
-	}
-
-	var g generatedPost
-	if err := json.Unmarshal([]byte(raw), &g); err != nil {
-		return nil, fmt.Errorf("parse AI JSON: %w", err)
-	}
-	if strings.TrimSpace(g.Title) == "" || strings.TrimSpace(g.Content) == "" {
-		return nil, fmt.Errorf("AI returned empty title/content")
-	}
-	return &g, nil
-}
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -81,12 +37,12 @@ func main() {
 	}
 
 	log.Printf("generating AI post for topic: %q (model %s)...", *topic, provider.Model)
-	raw, err := provider.Generate(context.Background(), buildPrompt(*topic))
+	raw, err := provider.Generate(context.Background(), content.BuildPrompt(*topic))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	post, err := parseGenerated(raw)
+	post, err := content.ParsePost(raw)
 	if err != nil {
 		log.Fatalf("generated content not parseable: %v\nraw output:\n%s", err, raw)
 	}

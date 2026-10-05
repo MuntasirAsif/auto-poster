@@ -2,11 +2,11 @@
 -- Reliable auto-poster scheduler (Supabase)
 -- ----------------------------------------------------------------------------
 -- GitHub throttles `schedule` crons on low-activity repositories, so the
--- workflow's `*/15 * * * *` trigger actually fires only every few hours.
+-- workflow's own cron is unreliable. This installs a pg_cron job that calls
+-- the GitHub Actions workflow_dispatch API directly.
 --
--- This installs a pg_cron job that calls the GitHub Actions workflow_dispatch
--- API every 15 minutes, which is not throttled. Combined with the interval
--- gating in internal/scheduler, posts then publish on time.
+-- It dispatches `.github/workflows/daily.yml` once per day at 19:00
+-- Asia/Dhaka (13:00 UTC), which generates and publishes 3 posts.
 --
 -- Prerequisites (Supabase Dashboard > Database > Extensions):
 --   pg_cron, pg_net and vault must be available.
@@ -32,10 +32,10 @@ select cron.unschedule(jobid) from cron.job where jobname = 'auto-poster-dispatc
 
 select cron.schedule(
   'auto-poster-dispatch',
-  '*/15 * * * *',
+  '0 13 * * *',
   $job$
   select net.http_post(
-    url := 'https://api.github.com/repos/MuntasirAsif/auto-poster/actions/workflows/publish.yml/dispatches',
+    url := 'https://api.github.com/repos/MuntasirAsif/auto-poster/actions/workflows/daily.yml/dispatches',
     headers := jsonb_build_object(
       'Authorization', 'Bearer ' || (
         select decrypted_secret

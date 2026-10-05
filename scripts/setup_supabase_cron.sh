@@ -3,8 +3,9 @@ set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Wires up a Supabase pg_cron job that dispatches the auto-poster GitHub
-# Actions workflow every 15 minutes. This works around GitHub throttling the
-# workflow's own `schedule` cron.
+# Actions "Daily generate & publish" workflow once per day at 19:00
+# Asia/Dhaka (13:00 UTC). This works around GitHub throttling the workflow's
+# own `schedule` cron.
 #
 # Usage:
 #   GITHUB_PAT=github_pat_xxx \
