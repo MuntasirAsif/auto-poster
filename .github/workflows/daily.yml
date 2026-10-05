@@ -6,6 +6,15 @@ name: Daily generate & publish
 # here (and avoid double-runs).
 on:
   workflow_dispatch:
+    inputs:
+      count:
+        description: "Number of posts to generate and publish"
+        required: false
+        default: "3"
+      image:
+        description: "Generate cover images (true/false)"
+        required: false
+        default: "true"
 
 jobs:
   generate:
@@ -23,11 +32,16 @@ jobs:
       - name: Build daily
         run: go build -o daily ./cmd/daily
 
-      - name: Generate and publish 3 posts
+      - name: Generate and publish
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BLOG_API_URL: ${{ secrets.BLOG_API_URL }}
           BLOG_API_TOKEN: ${{ secrets.BLOG_API_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AI_HORDE_API_KEY: ${{ secrets.AI_HORDE_API_KEY }}
-        run: ./daily -count 3 -image
+        run: |
+          COUNT="${{ inputs.count }}"
+          [ -z "$COUNT" ] && COUNT=3
+          ARGS="-count $COUNT"
+          if [ "${{ inputs.image }}" != "false" ]; then ARGS="$ARGS -image"; fi
+          ./daily $ARGS
