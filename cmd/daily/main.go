@@ -21,7 +21,7 @@ func main() {
 		log.Println("No .env file found, using defaults")
 	}
 
-	count := flag.Int("count", 3, "number of posts to generate and publish")
+	count := flag.Int("count", 1, "number of posts to generate and publish")
 	withImage := flag.Bool("image", false, "generate a cover image for each post (free, via AI Horde)")
 	flag.Parse()
 
