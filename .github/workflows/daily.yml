@@ -10,7 +10,7 @@ on:
       count:
         description: "Number of posts to generate and publish"
         required: false
-        default: "3"
+        default: "1"
       image:
         description: "Generate cover images (true/false)"
         required: false
@@ -41,7 +41,7 @@ jobs:
           AI_HORDE_API_KEY: ${{ secrets.AI_HORDE_API_KEY }}
         run: |
           COUNT="${{ inputs.count }}"
-          [ -z "$COUNT" ] && COUNT=3
+          [ -z "$COUNT" ] && COUNT=1
           ARGS="-count $COUNT"
           if [ "${{ inputs.image }}" != "false" ]; then ARGS="$ARGS -image"; fi
           ./daily $ARGS
