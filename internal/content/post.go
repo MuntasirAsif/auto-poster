@@ -71,7 +71,7 @@ func GenerateTopics(ctx context.Context, provider ai.Provider, n int) ([]string,
 	}
 
 	prompt := fmt.Sprintf(`You are the editor of a professional software engineer's blog.
-Suggest %d distinct, specific, original blog post topics. Focus on Go, backend engineering, PostgreSQL, DevOps, cloud infrastructure, and practical AI tooling.
+Suggest %d distinct, specific, original blog post topics. Focus on software engineering and computer science — backend systems, distributed computing, databases, DevOps, and cloud infrastructure — as well as electrical engineering topics such as embedded systems, digital design, and signal processing, plus practical AI tooling.
 Avoid generic listicles and overly broad subjects. Return ONLY a JSON array of %d strings, for example ["topic one", "topic two"].`, n, n)
 
 	raw, err := provider.Generate(ctx, prompt)
